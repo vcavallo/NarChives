@@ -166,7 +166,7 @@ class ReplayServer(
         return try {
             val remoteResponse = proxyHttpClient.newCall(requestBuilder.build()).execute()
             val body = remoteResponse.body ?: return newFixedLengthResponse(
-                Response.Status.BAD_GATEWAY, "text/plain", "Empty response from Blossom server"
+                Response.Status.INTERNAL_ERROR, "text/plain", "Empty response from Blossom server"
             )
 
             val status = if (remoteResponse.code == 206) {
@@ -194,7 +194,7 @@ class ReplayServer(
             response
         } catch (e: Exception) {
             newFixedLengthResponse(
-                Response.Status.BAD_GATEWAY,
+                Response.Status.INTERNAL_ERROR,
                 "text/plain",
                 "Failed to fetch from Blossom: ${e.message}",
             )

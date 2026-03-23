@@ -50,12 +50,7 @@ class ArchiveRepository(
                             if (existing != null) {
                                 profileDao.insert(
                                     existing.copy(
-                                        blossomServers = kotlinx.serialization.json.Json.encodeToString(
-                                            kotlinx.serialization.builtins.ListSerializer(
-                                                kotlinx.serialization.builtins.serializer<String>()
-                                            ),
-                                            servers
-                                        ),
+                                        blossomServers = kotlinx.serialization.json.Json.encodeToString(servers),
                                         lastUpdated = System.currentTimeMillis() / 1000,
                                     )
                                 )

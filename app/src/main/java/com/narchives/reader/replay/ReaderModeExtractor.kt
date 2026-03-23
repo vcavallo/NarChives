@@ -106,11 +106,11 @@ class ReaderModeExtractor {
         val article = Readability4J(url, html).parse()
         return ReaderArticle(
             title = article.title ?: "",
-            content = article.articleContent ?: article.textContent ?: "",
+            content = article.articleContent?.toString() ?: article.textContent ?: "",
             textContent = article.textContent ?: "",
             excerpt = article.excerpt ?: "",
             byline = article.byline ?: "",
-            siteName = article.siteName ?: extractDomain(url),
+            siteName = extractDomain(url),
         )
     }
 
