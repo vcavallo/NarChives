@@ -1,10 +1,8 @@
 package com.narchives.reader.ui.screen.viewer
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.narchives.reader.data.local.entity.ArchiveEventEntity
-import com.narchives.reader.data.local.entity.SavedArchiveEntity
 import com.narchives.reader.data.local.dao.SavedArchiveDao
 import com.narchives.reader.data.repository.ArchiveRepository
 import com.narchives.reader.replay.ReplayServer
@@ -14,12 +12,20 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.File
 
+enum class ViewerMode {
+    LOADING,
+    WACZ_REPLAY,   // Full WACZ replay via ReplayServer + WebView
+    TEXT_CONTENT,   // Direct text/article content from the event
+    ERROR,
+}
+
 data class ViewerUiState(
     val archive: ArchiveEventEntity? = null,
+    val mode: ViewerMode = ViewerMode.LOADING,
     val serverUrl: String? = null,
     val waczSourceUrl: String? = null,
     val archivedPageUrl: String = "",
-    val isLoading: Boolean = true,
+    val textContent: String? = null,
     val error: String? = null,
     val isSaved: Boolean = false,
 )
@@ -43,29 +49,51 @@ class ArchiveViewerViewModel(
             try {
                 val archive = archiveRepository.getById(eventId)
                 if (archive == null) {
-                    _uiState.update { it.copy(isLoading = false, error = "Archive not found") }
+                    _uiState.update { it.copy(mode = ViewerMode.ERROR, error = "Archive not found") }
                     return@launch
                 }
 
                 val isSaved = savedArchiveDao.isSaved(eventId)
                 _uiState.update { it.copy(archive = archive, isSaved = isSaved) }
 
-                // Check for local file first
+                val hasWacz = archive.waczHash != null || archive.waczUrl != null
+
+                if (!hasWacz) {
+                    // This is a text-content event, not a WACZ archive
+                    val content = archive.description
+                    if (content != null && content.isNotBlank()) {
+                        _uiState.update {
+                            it.copy(
+                                mode = ViewerMode.TEXT_CONTENT,
+                                textContent = content,
+                                archivedPageUrl = archive.archivedUrl,
+                            )
+                        }
+                    } else {
+                        _uiState.update {
+                            it.copy(
+                                mode = ViewerMode.ERROR,
+                                error = "This archive has no viewable content — it may be a reference without an attached WACZ file",
+                            )
+                        }
+                    }
+                    return@launch
+                }
+
+                // Has WACZ — try to resolve and serve it
                 val savedArchive = savedArchiveDao.getByEventId(eventId)
                 val localFile = savedArchive?.localWaczPath?.let { File(it) }
                     ?.takeIf { it.exists() }
 
                 if (localFile != null) {
-                    // Serve from local file
                     replayServer.setWaczSource(localFile = localFile)
                 } else {
-                    // Resolve remote URL
                     val waczUrl = archiveRepository.resolveWaczUrl(archive)
                     if (waczUrl == null) {
                         _uiState.update {
                             it.copy(
-                                isLoading = false,
-                                error = "Archive not available — the file may have been removed from all known servers",
+                                mode = ViewerMode.ERROR,
+                                error = "WACZ file not available — could not find it on any known Blossom server",
                             )
                         }
                         return@launch
@@ -73,32 +101,29 @@ class ArchiveViewerViewModel(
                     replayServer.setWaczSource(remoteUrl = waczUrl)
                 }
 
-                // Start the replay server
                 replayServer.start()
 
                 _uiState.update {
                     it.copy(
-                        isLoading = false,
+                        mode = ViewerMode.WACZ_REPLAY,
                         serverUrl = replayServer.serverUrl,
                         waczSourceUrl = "${replayServer.serverUrl}/archive.wacz",
                         archivedPageUrl = archive.archivedUrl,
                     )
                 }
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, error = e.message) }
+                _uiState.update { it.copy(mode = ViewerMode.ERROR, error = e.message) }
             }
         }
     }
 
     fun retry() {
-        _uiState.update { it.copy(isLoading = true, error = null) }
+        _uiState.update { it.copy(mode = ViewerMode.LOADING, error = null) }
         loadArchive()
     }
 
     override fun onCleared() {
         super.onCleared()
-        try {
-            replayServer.stop()
-        } catch (_: Exception) { }
+        try { replayServer.stop() } catch (_: Exception) { }
     }
 }

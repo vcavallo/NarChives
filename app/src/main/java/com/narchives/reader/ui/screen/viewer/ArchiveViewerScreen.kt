@@ -6,9 +6,11 @@ import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -21,11 +23,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.narchives.reader.ui.components.ErrorState
 import com.narchives.reader.ui.components.LoadingIndicator
 import com.narchives.reader.ui.util.extractDomain
-import java.net.URLEncoder
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,7 +43,9 @@ fun ArchiveViewerScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = uiState.archive?.let { extractDomain(it.archivedUrl) } ?: "Viewer",
+                        text = uiState.archive?.title
+                            ?: uiState.archive?.let { extractDomain(it.archivedUrl) }
+                            ?: "Viewer",
                     )
                 },
                 navigationIcon = {
@@ -50,11 +54,13 @@ fun ArchiveViewerScreen(
                     }
                 },
                 actions = {
-                    IconButton(
-                        onClick = { onReaderMode(uiState.archive?.eventId ?: "") },
-                        enabled = uiState.archive != null,
-                    ) {
-                        Icon(Icons.Default.MenuBook, contentDescription = "Reader mode")
+                    if (uiState.mode == ViewerMode.WACZ_REPLAY) {
+                        IconButton(
+                            onClick = { onReaderMode(uiState.archive?.eventId ?: "") },
+                            enabled = uiState.archive != null,
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = "Reader mode")
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -68,13 +74,20 @@ fun ArchiveViewerScreen(
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            when {
-                uiState.isLoading -> LoadingIndicator()
-                uiState.error != null -> ErrorState(
-                    message = uiState.error!!,
+            when (uiState.mode) {
+                ViewerMode.LOADING -> LoadingIndicator()
+                ViewerMode.ERROR -> ErrorState(
+                    message = uiState.error ?: "Unknown error",
                     onRetry = viewModel::retry,
                 )
-                uiState.serverUrl != null -> {
+                ViewerMode.TEXT_CONTENT -> {
+                    TextContentView(
+                        title = uiState.archive?.title ?: "",
+                        content = uiState.textContent ?: "",
+                        sourceUrl = uiState.archivedPageUrl,
+                    )
+                }
+                ViewerMode.WACZ_REPLAY -> {
                     ArchiveWebView(
                         serverUrl = uiState.serverUrl!!,
                         waczSourceUrl = uiState.waczSourceUrl!!,
@@ -83,6 +96,43 @@ fun ArchiveViewerScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun TextContentView(
+    title: String,
+    content: String,
+    sourceUrl: String,
+    modifier: Modifier = Modifier,
+) {
+    val scrollState = rememberScrollState()
+    androidx.compose.foundation.layout.Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+            .padding(16.dp),
+    ) {
+        if (title.isNotBlank()) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+        }
+        if (sourceUrl.isNotBlank()) {
+            Text(
+                text = sourceUrl,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(bottom = 16.dp),
+            )
+        }
+        Text(
+            text = content,
+            style = MaterialTheme.typography.bodyLarge,
+            lineHeight = MaterialTheme.typography.bodyLarge.lineHeight,
+        )
     }
 }
 
