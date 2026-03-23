@@ -3,6 +3,7 @@ package com.narchives.reader.data.repository
 import android.util.Log
 import com.narchives.reader.data.local.dao.ArchiveEventDao
 import com.narchives.reader.data.local.dao.ProfileDao
+import com.narchives.reader.data.local.dao.RelayDao
 import com.narchives.reader.data.local.entity.ArchiveEventEntity
 import com.narchives.reader.data.local.entity.ProfileEntity
 import com.narchives.reader.data.preferences.UserPreferences
@@ -24,6 +25,7 @@ class ArchiveRepository(
     private val blossomClient: BlossomClient,
     private val archiveEventDao: ArchiveEventDao,
     private val profileDao: ProfileDao,
+    private val relayDao: RelayDao,
     private val userPreferences: UserPreferences,
 ) {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -38,9 +40,14 @@ class ArchiveRepository(
                 when (event.kind) {
                     30041 -> {
                         val entity = EventMapper.toArchiveEntity(event, relayUrl)
-                        Log.d(TAG, "Mapped kind 30041 event: ${entity?.title ?: "null"}")
+                        Log.d(TAG, "Mapped kind 30041 event: ${entity?.title?.take(40) ?: "null"}")
                         if (entity != null) {
                             archiveEventDao.insert(entity)
+                            // Update relay archive count
+                            try {
+                                val count = archiveEventDao.count()
+                                relayDao.updateCount(relayUrl, count)
+                            } catch (_: Exception) { }
                         }
                     }
                     0 -> {

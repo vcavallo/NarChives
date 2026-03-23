@@ -47,6 +47,7 @@ class AppContainer(private val context: Context) {
             blossomClient = blossomClient,
             archiveEventDao = database.archiveEventDao(),
             profileDao = database.profileDao(),
+            relayDao = database.relayDao(),
             userPreferences = userPreferences,
         )
     }
