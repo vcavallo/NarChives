@@ -1,5 +1,6 @@
 package com.narchives.reader.data.repository
 
+import android.util.Log
 import com.narchives.reader.data.local.dao.ArchiveEventDao
 import com.narchives.reader.data.local.dao.ProfileDao
 import com.narchives.reader.data.local.entity.ArchiveEventEntity
@@ -16,6 +17,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import java.util.UUID
 
+private const val TAG = "NarchivesArchiveRepo"
+
 class ArchiveRepository(
     private val nostrClient: NostrClient,
     private val blossomClient: BlossomClient,
@@ -29,10 +32,13 @@ class ArchiveRepository(
     init {
         // Listen for incoming events from relays and store them
         scope.launch {
+            Log.d(TAG, "Started collecting events from NostrClient")
             nostrClient.events.collect { (relayUrl, event) ->
+                Log.d(TAG, "Received event kind=${event.kind} from $relayUrl")
                 when (event.kind) {
                     30041 -> {
                         val entity = EventMapper.toArchiveEntity(event, relayUrl)
+                        Log.d(TAG, "Mapped kind 30041 event: ${entity?.title ?: "null"}")
                         if (entity != null) {
                             archiveEventDao.insert(entity)
                         }
@@ -63,6 +69,7 @@ class ArchiveRepository(
     }
 
     fun subscribeGlobalFeed(relayUrls: List<String>) {
+        Log.i(TAG, "subscribeGlobalFeed with ${relayUrls.size} relays: $relayUrls")
         activeSubscriptionId?.let { nostrClient.unsubscribe(it) }
 
         val subId = "global-${UUID.randomUUID().toString().take(8)}"

@@ -1,5 +1,6 @@
 package com.narchives.reader.data.remote.nostr
 
+import android.util.Log
 import com.vitorpamplona.quartz.nip01Core.core.Event
 import com.vitorpamplona.quartz.nip01Core.relay.client.NostrClient as QuartzNostrClient
 import com.vitorpamplona.quartz.nip01Core.relay.client.listeners.IRelayClientListener
@@ -20,6 +21,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
+
+private const val TAG = "NarchivesNostr"
 
 /**
  * Thin wrapper around Quartz's NostrClient providing a simpler API
@@ -45,12 +48,14 @@ class NostrClient {
     val connectedRelays: StateFlow<Set<String>> = _connectedRelays
 
     init {
+        Log.d(TAG, "NostrClient init — registering listener")
         quartzClient.subscribe(object : IRelayClientListener {
             override fun onConnected(
                 relay: IRelayClient,
                 pingMillis: Int,
                 compressed: Boolean,
             ) {
+                Log.i(TAG, "Connected to relay: ${relay.url.url} (ping=${pingMillis}ms)")
                 _connectedRelays.value = _connectedRelays.value + relay.url.url
             }
 
@@ -59,14 +64,16 @@ class NostrClient {
                 msgStr: String,
                 msg: Message,
             ) {
-                scope.launch {
-                    if (msg is EventMessage) {
+                if (msg is EventMessage) {
+                    Log.d(TAG, "Event kind=${msg.event.kind} from ${relay.url.url} id=${msg.event.id.take(8)}")
+                    scope.launch {
                         _events.emit(RelayEvent(relay.url.url, msg.event))
                     }
                 }
             }
 
             override fun onDisconnected(relay: IRelayClient) {
+                Log.w(TAG, "Disconnected from relay: ${relay.url.url}")
                 _connectedRelays.value = _connectedRelays.value - relay.url.url
             }
 
@@ -74,16 +81,19 @@ class NostrClient {
                 relay: IRelayClient,
                 errorMessage: String,
             ) {
+                Log.e(TAG, "Cannot connect to relay ${relay.url.url}: $errorMessage")
                 _connectedRelays.value = _connectedRelays.value - relay.url.url
             }
         })
     }
 
     fun connect() {
+        Log.d(TAG, "connect() called")
         quartzClient.connect()
     }
 
     fun disconnect() {
+        Log.d(TAG, "disconnect() called")
         quartzClient.disconnect()
     }
 
@@ -92,17 +102,24 @@ class NostrClient {
         relayUrls: List<String>,
         filters: List<Filter>,
     ) {
+        Log.i(TAG, "subscribe($subscriptionId) to ${relayUrls.size} relays, ${filters.size} filters")
+        relayUrls.forEach { Log.d(TAG, "  relay: $it") }
+        filters.forEach { Log.d(TAG, "  filter: kinds=${it.kinds} limit=${it.limit} authors=${it.authors?.size}") }
+
         val filterMap = relayUrls.associate { url ->
-            val normalized = url.normalizeRelayUrl() ?: NormalizedRelayUrl(url)
-            normalized to filters
+            val normalized = url.normalizeRelayUrl()
+            Log.d(TAG, "  normalizeRelayUrl($url) -> $normalized")
+            (normalized ?: NormalizedRelayUrl(url)) to filters
         }
         quartzClient.openReqSubscription(
             subId = subscriptionId,
             filters = filterMap,
         )
+        Log.d(TAG, "openReqSubscription sent")
     }
 
     fun unsubscribe(subscriptionId: String) {
+        Log.d(TAG, "unsubscribe($subscriptionId)")
         quartzClient.close(subscriptionId)
     }
 }
