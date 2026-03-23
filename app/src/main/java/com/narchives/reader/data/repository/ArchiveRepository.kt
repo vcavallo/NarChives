@@ -37,8 +37,8 @@ class ArchiveRepository(
             Log.d(TAG, "Started collecting events from NostrClient")
             nostrClient.events.collect { (relayUrl, event) ->
                 Log.d(TAG, "Received event kind=${event.kind} from $relayUrl")
-                when (event.kind) {
-                    30041 -> {
+                when {
+                    event.kind in EventMapper.ARCHIVE_KINDS -> {
                         val entity = EventMapper.toArchiveEntity(event, relayUrl)
                         Log.d(TAG, "Mapped kind 30041 event: ${entity?.title?.take(40) ?: "null"}")
                         if (entity != null) {
@@ -50,13 +50,13 @@ class ArchiveRepository(
                             } catch (_: Exception) { }
                         }
                     }
-                    0 -> {
+                    event.kind == 0 -> {
                         val profile = EventMapper.toProfileEntity(event)
                         if (profile != null) {
                             profileDao.insert(profile)
                         }
                     }
-                    10063 -> {
+                    event.kind == 10063 -> {
                         val servers = EventMapper.extractBlossomServers(event)
                         if (servers != null) {
                             val existing = profileDao.getByPubkey(event.pubKey)
@@ -86,7 +86,7 @@ class ArchiveRepository(
             subscriptionId = subId,
             relayUrls = relayUrls,
             filters = listOf(
-                Filter(kinds = listOf(30041), limit = 50),
+                Filter(kinds = EventMapper.ARCHIVE_KINDS, limit = 50),
             ),
         )
     }
@@ -101,7 +101,7 @@ class ArchiveRepository(
             subscriptionId = subId,
             relayUrls = relayUrls,
             filters = listOf(
-                Filter(kinds = listOf(30041), authors = listOf(authorPubkey), limit = 50),
+                Filter(kinds = EventMapper.ARCHIVE_KINDS, authors = listOf(authorPubkey), limit = 50),
             ),
         )
 
@@ -126,7 +126,7 @@ class ArchiveRepository(
             subscriptionId = subId,
             relayUrls = listOf(relayUrl),
             filters = listOf(
-                Filter(kinds = listOf(30041), limit = 50),
+                Filter(kinds = EventMapper.ARCHIVE_KINDS, limit = 50),
             ),
         )
     }
