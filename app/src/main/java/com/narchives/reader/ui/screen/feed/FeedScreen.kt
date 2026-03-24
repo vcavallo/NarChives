@@ -173,6 +173,8 @@ fun FeedScreen(
                                     profile = uiState.profiles[archive.authorPubkey],
                                     onClick = { onArchiveClick(archive.eventId) },
                                     onAuthorClick = { onAuthorClick(archive.authorPubkey) },
+                                    onSaveClick = { viewModel.toggleSaved(archive) },
+                                    isSaved = archive.eventId in uiState.savedEventIds,
                                 )
                             }
 

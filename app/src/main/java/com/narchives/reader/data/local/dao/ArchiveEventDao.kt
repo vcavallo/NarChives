@@ -49,6 +49,9 @@ interface ArchiveEventDao {
     @Query("SELECT COUNT(*) FROM archive_events")
     suspend fun count(): Int
 
+    @Query("SELECT COUNT(*) FROM archive_events WHERE sourceRelay = :relayUrl")
+    suspend fun countByRelay(relayUrl: String): Int
+
     @Query("SELECT DISTINCT authorPubkey FROM archive_events")
     suspend fun getDistinctAuthors(): List<String>
 

@@ -9,6 +9,7 @@ import com.narchives.reader.data.remote.nostr.NostrClient
 import com.narchives.reader.data.repository.ArchiveRepository
 import com.narchives.reader.data.repository.ProfileRepository
 import com.narchives.reader.data.repository.RelayRepository
+import com.narchives.reader.data.repository.SavedArchiveRepository
 import com.narchives.reader.replay.ReplayServer
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
@@ -60,7 +61,11 @@ class AppContainer(private val context: Context) {
         RelayRepository(database.relayDao(), userPreferences)
     }
 
-    // Replay server
+    val savedArchiveRepository: SavedArchiveRepository by lazy {
+        SavedArchiveRepository(database.savedArchiveDao(), context)
+    }
+
+    // Replay server (kept for potential future use)
     val replayServer: ReplayServer by lazy {
         ReplayServer(context, blossomClient)
     }

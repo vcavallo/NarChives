@@ -44,9 +44,11 @@ class ArchiveRepository(
                         if (entity != null) {
                             archiveEventDao.insert(entity)
                             // Update relay archive count
+                            // The relayUrl from events has trailing slash, DB may not
                             try {
-                                val count = archiveEventDao.count()
+                                val count = archiveEventDao.countByRelay(relayUrl)
                                 relayDao.updateCount(relayUrl, count)
+                                relayDao.updateCount(relayUrl.trimEnd('/'), count)
                             } catch (_: Exception) { }
                         }
                     }

@@ -103,6 +103,7 @@ fun NarchivesNavGraph() {
                         container.archiveRepository,
                         container.profileRepository,
                         container.relayRepository,
+                        container.savedArchiveRepository,
                     )
                 }
                 FeedScreen(

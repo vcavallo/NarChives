@@ -7,6 +7,7 @@ import com.narchives.reader.data.local.entity.ProfileEntity
 import com.narchives.reader.data.repository.ArchiveRepository
 import com.narchives.reader.data.repository.ProfileRepository
 import com.narchives.reader.data.repository.RelayRepository
+import com.narchives.reader.data.repository.SavedArchiveRepository
 import com.narchives.reader.ui.util.extractDomain
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,11 +25,11 @@ data class FeedUiState(
     val allArchives: List<ArchiveEventEntity> = emptyList(),
     val filteredArchives: List<ArchiveEventEntity> = emptyList(),
     val profiles: Map<String, ProfileEntity> = emptyMap(),
+    val savedEventIds: Set<String> = emptySet(),
     val isLoading: Boolean = true,
     val isLoadingMore: Boolean = false,
     val error: String? = null,
     val filters: FeedFilters = FeedFilters(),
-    // Available filter options (derived from data)
     val availableRelays: List<String> = emptyList(),
     val availableDomains: List<String> = emptyList(),
 )
@@ -37,6 +38,7 @@ class FeedViewModel(
     private val archiveRepository: ArchiveRepository,
     private val profileRepository: ProfileRepository,
     private val relayRepository: RelayRepository,
+    private val savedArchiveRepository: SavedArchiveRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(FeedUiState())
@@ -45,6 +47,7 @@ class FeedViewModel(
     init {
         loadFeed()
         observeArchives()
+        observeSaved()
     }
 
     private fun loadFeed() {
@@ -150,6 +153,24 @@ class FeedViewModel(
     fun onSearchQueryChanged(query: String) {
         _uiState.update { it.copy(filters = it.filters.copy(searchQuery = query)) }
         applyFilters()
+    }
+
+    private fun observeSaved() {
+        viewModelScope.launch {
+            savedArchiveRepository.observeAll().collect { savedList ->
+                _uiState.update { it.copy(savedEventIds = savedList.map { s -> s.eventId }.toSet()) }
+            }
+        }
+    }
+
+    fun toggleSaved(archive: ArchiveEventEntity) {
+        viewModelScope.launch {
+            if (_uiState.value.savedEventIds.contains(archive.eventId)) {
+                savedArchiveRepository.remove(archive.eventId)
+            } else {
+                savedArchiveRepository.save(archive)
+            }
+        }
     }
 
     fun clearAllFilters() {
