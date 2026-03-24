@@ -171,8 +171,9 @@ fun NarchivesNavGraph() {
                     ArchiveViewerViewModel(
                         eventId = eventId,
                         archiveRepository = container.archiveRepository,
-                        replayServer = container.replayServer,
                         savedArchiveDao = container.database.savedArchiveDao(),
+                        blossomClient = container.blossomClient,
+                        cacheDir = context.cacheDir,
                     )
                 }
                 ArchiveViewerScreen(

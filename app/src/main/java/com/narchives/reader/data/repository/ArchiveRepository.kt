@@ -82,11 +82,15 @@ class ArchiveRepository(
         val subId = "global-${UUID.randomUUID().toString().take(8)}"
         activeSubscriptionId = subId
 
+        // Use separate filters per kind so each gets its own limit.
+        // Otherwise relays with lots of kind 30041 (text articles) starve out
+        // the kind 4554 (actual WACZ archives) from other relays.
         nostrClient.subscribe(
             subscriptionId = subId,
             relayUrls = relayUrls,
             filters = listOf(
-                Filter(kinds = EventMapper.ARCHIVE_KINDS, limit = 50),
+                Filter(kinds = listOf(4554), limit = 100),
+                Filter(kinds = listOf(30041), limit = 50),
             ),
         )
     }
@@ -101,7 +105,8 @@ class ArchiveRepository(
             subscriptionId = subId,
             relayUrls = relayUrls,
             filters = listOf(
-                Filter(kinds = EventMapper.ARCHIVE_KINDS, authors = listOf(authorPubkey), limit = 50),
+                Filter(kinds = listOf(4554), authors = listOf(authorPubkey), limit = 100),
+                Filter(kinds = listOf(30041), authors = listOf(authorPubkey), limit = 50),
             ),
         )
 
@@ -126,7 +131,8 @@ class ArchiveRepository(
             subscriptionId = subId,
             relayUrls = listOf(relayUrl),
             filters = listOf(
-                Filter(kinds = EventMapper.ARCHIVE_KINDS, limit = 50),
+                Filter(kinds = listOf(4554), limit = 100),
+                Filter(kinds = listOf(30041), limit = 50),
             ),
         )
     }

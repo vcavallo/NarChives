@@ -2,9 +2,12 @@ package com.narchives.reader.ui.screen.viewer
 
 import android.webkit.WebSettings
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -14,6 +17,7 @@ import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -22,9 +26,11 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.narchives.reader.replay.WaczReplayWebViewClient
 import com.narchives.reader.ui.components.ErrorState
 import com.narchives.reader.ui.components.LoadingIndicator
 import com.narchives.reader.ui.util.extractDomain
@@ -54,7 +60,7 @@ fun ArchiveViewerScreen(
                     }
                 },
                 actions = {
-                    if (uiState.mode == ViewerMode.WACZ_REPLAY) {
+                    if (uiState.mode == ViewerMode.WACZ_REPLAY || uiState.mode == ViewerMode.TEXT_CONTENT) {
                         IconButton(
                             onClick = { onReaderMode(uiState.archive?.eventId ?: "") },
                             enabled = uiState.archive != null,
@@ -76,6 +82,9 @@ fun ArchiveViewerScreen(
         ) {
             when (uiState.mode) {
                 ViewerMode.LOADING -> LoadingIndicator()
+                ViewerMode.DOWNLOADING -> {
+                    DownloadingIndicator(progress = uiState.downloadProgress)
+                }
                 ViewerMode.ERROR -> ErrorState(
                     message = uiState.error ?: "Unknown error",
                     onRetry = viewModel::retry,
@@ -89,12 +98,37 @@ fun ArchiveViewerScreen(
                 }
                 ViewerMode.WACZ_REPLAY -> {
                     ArchiveWebView(
-                        serverUrl = uiState.serverUrl!!,
-                        waczSourceUrl = uiState.waczSourceUrl!!,
-                        archivedPageUrl = uiState.archivedPageUrl,
+                        entryUrl = uiState.entryUrl!!,
+                        webViewClient = uiState.webViewClient!!,
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun DownloadingIndicator(progress: Int, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "Downloading archive...",
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            LinearProgressIndicator(
+                progress = { progress / 100f },
+                modifier = Modifier.fillMaxWidth(0.6f),
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "$progress%",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
@@ -107,7 +141,7 @@ private fun TextContentView(
     modifier: Modifier = Modifier,
 ) {
     val scrollState = rememberScrollState()
-    androidx.compose.foundation.layout.Column(
+    Column(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(scrollState)
@@ -131,16 +165,14 @@ private fun TextContentView(
         Text(
             text = content,
             style = MaterialTheme.typography.bodyLarge,
-            lineHeight = MaterialTheme.typography.bodyLarge.lineHeight,
         )
     }
 }
 
 @Composable
 private fun ArchiveWebView(
-    serverUrl: String,
-    waczSourceUrl: String,
-    archivedPageUrl: String,
+    entryUrl: String,
+    webViewClient: WaczReplayWebViewClient,
     modifier: Modifier = Modifier,
 ) {
     AndroidView(
@@ -150,28 +182,21 @@ private fun ArchiveWebView(
                 settings.apply {
                     javaScriptEnabled = true
                     domStorageEnabled = true
-                    allowFileAccess = true
-                    allowContentAccess = true
-                    mediaPlaybackRequiresUserGesture = false
+                    allowFileAccess = false
+                    allowContentAccess = false
                     mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                     setSupportZoom(true)
                     builtInZoomControls = true
                     displayZoomControls = false
+                    // Disable network access — everything comes from the WACZ
+                    blockNetworkLoads = false // We handle misses in shouldInterceptRequest
                     userAgentString = "$userAgentString Narchives/1.0"
                 }
 
-                webViewClient = object : WebViewClient() {
-                    override fun onPageFinished(view: WebView?, url: String?) {
-                        val encodedWaczUrl = waczSourceUrl.replace("'", "\\'")
-                        val encodedPageUrl = archivedPageUrl.replace("'", "\\'")
-                        view?.evaluateJavascript(
-                            "loadArchive('$encodedWaczUrl', '$encodedPageUrl')",
-                            null,
-                        )
-                    }
-                }
+                this.webViewClient = webViewClient
 
-                loadUrl("$serverUrl/index.html")
+                // Load the entry URL — the WebViewClient will intercept and serve from WACZ
+                loadUrl(entryUrl)
             }
         },
     )

@@ -23,6 +23,9 @@ class UserPreferences(private val context: Context) {
             "wss://relay.nostr.band",
             "wss://purplepag.es",
             "wss://relay.snort.social",
+            "wss://nostr.wine",
+            "wss://nostr.mom",
+            "wss://relay.nostr.net",
         )
 
         val DEFAULT_BLOSSOM_SERVERS = listOf(
