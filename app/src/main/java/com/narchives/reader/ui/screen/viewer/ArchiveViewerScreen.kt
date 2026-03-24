@@ -2,14 +2,19 @@ package com.narchives.reader.ui.screen.viewer
 
 import android.webkit.WebSettings
 import android.webkit.WebView
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -17,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -28,6 +34,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.narchives.reader.replay.WaczReplayWebViewClient
@@ -44,63 +51,106 @@ fun ArchiveViewerScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = uiState.archive?.title
-                            ?: uiState.archive?.let { extractDomain(it.archivedUrl) }
-                            ?: "Viewer",
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    if (uiState.mode == ViewerMode.WACZ_REPLAY || uiState.mode == ViewerMode.TEXT_CONTENT) {
-                        IconButton(
-                            onClick = { onReaderMode(uiState.archive?.eventId ?: "") },
-                            enabled = uiState.archive != null,
-                        ) {
-                            Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = "Reader mode")
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
+    if (uiState.mode == ViewerMode.WACZ_REPLAY) {
+        // Full-screen replay with floating controls
+        Box(modifier = Modifier.fillMaxSize()) {
+            ArchiveWebView(
+                entryUrl = uiState.entryUrl!!,
+                webViewClient = uiState.webViewClient!!,
             )
-        },
-    ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-        ) {
-            when (uiState.mode) {
-                ViewerMode.LOADING -> LoadingIndicator()
-                ViewerMode.DOWNLOADING -> {
-                    DownloadingIndicator(progress = uiState.downloadProgress)
+
+            // Floating controls at top-left
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(start = 8.dp, top = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .shadow(4.dp, CircleShape),
+                    colors = IconButtonDefaults.iconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                    ),
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        modifier = Modifier.size(18.dp),
+                    )
                 }
-                ViewerMode.ERROR -> ErrorState(
-                    message = uiState.error ?: "Unknown error",
-                    onRetry = viewModel::retry,
+                Spacer(modifier = Modifier.width(8.dp))
+                IconButton(
+                    onClick = { onReaderMode(uiState.archive?.eventId ?: "") },
+                    enabled = uiState.archive != null,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .shadow(4.dp, CircleShape),
+                    colors = IconButtonDefaults.iconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                    ),
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.MenuBook,
+                        contentDescription = "Reader mode",
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
+        }
+    } else {
+        // Standard scaffold for non-replay modes
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Text(
+                            text = uiState.archive?.title
+                                ?: uiState.archive?.let { extractDomain(it.archivedUrl) }
+                                ?: "Viewer",
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        }
+                    },
+                    actions = {
+                        if (uiState.mode == ViewerMode.TEXT_CONTENT) {
+                            IconButton(
+                                onClick = { onReaderMode(uiState.archive?.eventId ?: "") },
+                                enabled = uiState.archive != null,
+                            ) {
+                                Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = "Reader mode")
+                            }
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                    ),
                 )
-                ViewerMode.TEXT_CONTENT -> {
-                    TextContentView(
+            },
+        ) { padding ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+            ) {
+                when (uiState.mode) {
+                    ViewerMode.LOADING -> LoadingIndicator()
+                    ViewerMode.DOWNLOADING -> DownloadingIndicator(progress = uiState.downloadProgress)
+                    ViewerMode.ERROR -> ErrorState(
+                        message = uiState.error ?: "Unknown error",
+                        onRetry = viewModel::retry,
+                    )
+                    ViewerMode.TEXT_CONTENT -> TextContentView(
                         title = uiState.archive?.title ?: "",
                         content = uiState.textContent ?: "",
                         sourceUrl = uiState.archivedPageUrl,
                     )
-                }
-                ViewerMode.WACZ_REPLAY -> {
-                    ArchiveWebView(
-                        entryUrl = uiState.entryUrl!!,
-                        webViewClient = uiState.webViewClient!!,
-                    )
+                    else -> {} // WACZ_REPLAY handled above
                 }
             }
         }
@@ -188,14 +238,10 @@ private fun ArchiveWebView(
                     setSupportZoom(true)
                     builtInZoomControls = true
                     displayZoomControls = false
-                    // Disable network access — everything comes from the WACZ
-                    blockNetworkLoads = false // We handle misses in shouldInterceptRequest
+                    blockNetworkLoads = false
                     userAgentString = "$userAgentString Narchives/1.0"
                 }
-
                 this.webViewClient = webViewClient
-
-                // Load the entry URL — the WebViewClient will intercept and serve from WACZ
                 loadUrl(entryUrl)
             }
         },
