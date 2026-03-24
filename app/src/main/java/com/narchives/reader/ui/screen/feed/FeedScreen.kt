@@ -13,11 +13,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -33,7 +35,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -131,12 +135,31 @@ fun FeedScreen(
                     else "${uiState.allArchives.size} total archives available",
                 )
                 else -> {
+                    val listState = rememberLazyListState()
+
+                    // Detect when scrolled near the bottom
+                    val shouldLoadMore by remember {
+                        derivedStateOf {
+                            val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()
+                                ?: return@derivedStateOf false
+                            val totalItems = listState.layoutInfo.totalItemsCount
+                            lastVisibleItem.index >= totalItems - 3
+                        }
+                    }
+
+                    LaunchedEffect(shouldLoadMore) {
+                        if (shouldLoadMore && !uiState.isLoadingMore) {
+                            viewModel.loadMore()
+                        }
+                    }
+
                     PullToRefreshBox(
                         isRefreshing = uiState.isLoading,
                         onRefresh = viewModel::refresh,
                         modifier = Modifier.fillMaxSize(),
                     ) {
                         LazyColumn(
+                            state = listState,
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(16.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -151,6 +174,23 @@ fun FeedScreen(
                                     onClick = { onArchiveClick(archive.eventId) },
                                     onAuthorClick = { onAuthorClick(archive.authorPubkey) },
                                 )
+                            }
+
+                            // Loading more indicator
+                            if (uiState.isLoadingMore) {
+                                item {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(16.dp),
+                                        horizontalArrangement = Arrangement.Center,
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.height(24.dp).width(24.dp),
+                                            strokeWidth = 2.dp,
+                                        )
+                                    }
+                                }
                             }
                         }
                     }

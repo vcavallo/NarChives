@@ -75,8 +75,11 @@ class ArchiveRepository(
         }
     }
 
+    private var lastRelayUrls: List<String> = emptyList()
+
     fun subscribeGlobalFeed(relayUrls: List<String>) {
         Log.i(TAG, "subscribeGlobalFeed with ${relayUrls.size} relays: $relayUrls")
+        lastRelayUrls = relayUrls
         activeSubscriptionId?.let { nostrClient.unsubscribe(it) }
 
         val subId = "global-${UUID.randomUUID().toString().take(8)}"
@@ -91,6 +94,25 @@ class ArchiveRepository(
             filters = listOf(
                 Filter(kinds = listOf(4554), limit = 100),
                 Filter(kinds = listOf(30041), limit = 50),
+            ),
+        )
+    }
+
+    /**
+     * Load older events by subscribing with `until` set to the oldest known timestamp.
+     * Used for infinite scroll / pagination.
+     */
+    fun loadMore(oldestTimestamp: Long) {
+        if (lastRelayUrls.isEmpty()) return
+        Log.i(TAG, "loadMore: until=$oldestTimestamp")
+
+        val subId = "more-${UUID.randomUUID().toString().take(8)}"
+        nostrClient.subscribe(
+            subscriptionId = subId,
+            relayUrls = lastRelayUrls,
+            filters = listOf(
+                Filter(kinds = listOf(4554), until = oldestTimestamp - 1, limit = 100),
+                Filter(kinds = listOf(30041), until = oldestTimestamp - 1, limit = 50),
             ),
         )
     }

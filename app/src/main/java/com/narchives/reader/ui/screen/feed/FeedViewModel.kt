@@ -25,6 +25,7 @@ data class FeedUiState(
     val filteredArchives: List<ArchiveEventEntity> = emptyList(),
     val profiles: Map<String, ProfileEntity> = emptyMap(),
     val isLoading: Boolean = true,
+    val isLoadingMore: Boolean = false,
     val error: String? = null,
     val filters: FeedFilters = FeedFilters(),
     // Available filter options (derived from data)
@@ -154,6 +155,22 @@ class FeedViewModel(
     fun clearAllFilters() {
         _uiState.update { it.copy(filters = FeedFilters()) }
         applyFilters()
+    }
+
+    fun loadMore() {
+        val state = _uiState.value
+        if (state.isLoadingMore || state.allArchives.isEmpty()) return
+
+        val oldestTimestamp = state.allArchives.minOf { it.createdAt }
+        _uiState.update { it.copy(isLoadingMore = true) }
+
+        viewModelScope.launch {
+            archiveRepository.loadMore(oldestTimestamp)
+            // The new events will arrive via the observeAll() flow.
+            // Reset isLoadingMore after a delay (events arrive asynchronously).
+            kotlinx.coroutines.delay(3000)
+            _uiState.update { it.copy(isLoadingMore = false) }
+        }
     }
 
     fun refresh() {
