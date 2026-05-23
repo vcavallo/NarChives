@@ -2,9 +2,9 @@
 
 An Android app for browsing web page archives published via the [Nostr](https://nostr.com) protocol and stored on [Blossom](https://github.com/hzrd149/blossom) media servers.
 
-Think of it like an RSS reader, but for WACZ web archives. Anyone with the [Nostr Web Archiver](github.com/fiatjaf/nostr-web-archiver) Chrome extension can archive a web page — the archive gets uploaded to a Blossom server and announced on Nostr. Narchives is the reading client for those archives.
+Think of it like an RSS reader, but for WACZ web archives. Anyone with the [Nostr Web Archiver](https://github.com/fiatjaf/nostr-web-archiver) Chrome extension can archive a web page — the archive gets uploaded to a Blossom server and announced on Nostr. Narchives is the reading client for those archives.
 
-**Check out [github.com/fiatjaf/nostr-web-archiver](github.com/fiatjaf/nostr-web-archiver) for creating web archives and uploading them to blossom/nostr!** The more archives on nostr, the better this app is (and the less we have to rely on centralized internet archives)
+**Check out [github.com/fiatjaf/nostr-web-archiver](https://github.com/fiatjaf/nostr-web-archiver) for creating web archives and uploading them to blossom/nostr!** The more archives on nostr, the better this app is (and the less we have to rely on centralized internet archives)
 
 ## Features
 
